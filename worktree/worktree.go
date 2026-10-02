@@ -2,7 +2,6 @@ package worktree
 
 import (
 	"fmt"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -251,7 +250,7 @@ func (w *RealWorktree) sameDir(a, b string) bool {
 }
 
 func (w *RealWorktree) worktreeRoot(cfg model.WorktreeConfig, repoPath string) string {
-	return cfg.Root(repoPath)
+	return w.path.ToSlash(cfg.Root(repoPath))
 }
 
 func (w *RealWorktree) BrowseURL(sessionPath string, pr bool) (string, error) {
@@ -289,11 +288,11 @@ func (w *RealWorktree) worktreeAt(path string) (model.WorktreeConfig, int, strin
 			continue
 		}
 		root := w.resolveSymlinks(w.worktreeRoot(cfg, repoPath))
-		rel, err := filepath.Rel(root, path)
+		rel, err := w.path.Rel(root, path)
 		if err != nil || rel == "." || strings.HasPrefix(rel, "..") {
 			continue
 		}
-		key := strings.Split(filepath.ToSlash(rel), "/")[0]
+		key := strings.Split(w.path.ToSlash(rel), "/")[0]
 		number, err := strconv.Atoi(key)
 		if err != nil {
 			continue

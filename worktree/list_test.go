@@ -91,6 +91,8 @@ func newListFixture(t *testing.T, issues *cache.Namespace[github.Issue]) listFix
 }
 
 func TestList_FetchesTitlesOnColdCache(t *testing.T) {
+	p := pathwrap.NewPath()
+
 	f := newListFixture(t, testIssueCache(t))
 	f.os.EXPECT().ReadDir("/repo/w").Return(dirs("409", "426"), nil)
 	f.gh.EXPECT().Issues("nutiliti/nutiliti", []int{409, 426}).Return(map[int]github.Issue{
@@ -102,8 +104,8 @@ func TestList_FetchesTitlesOnColdCache(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, []model.WorktreeEntry{
-		{Number: 409, Path: "/repo/w/409", Title: "worktree support", State: "OPEN"},
-		{Number: 426, Path: "/repo/w/426", Title: "cap fuzzy penalty", State: "CLOSED"},
+		{Number: 409, Path: p.FromSlash("/repo/w/409"), Title: "worktree support", State: "OPEN"},
+		{Number: 426, Path: p.FromSlash("/repo/w/426"), Title: "cap fuzzy penalty", State: "CLOSED"},
 	}, entries)
 }
 
@@ -252,6 +254,8 @@ func TestList_ShowsStaleTitleWhenRefetchFails(t *testing.T) {
 }
 
 func TestList_FetchFailureOnColdCacheStillLists(t *testing.T) {
+	p := pathwrap.NewPath()
+
 	f := newListFixture(t, testIssueCache(t))
 	f.os.EXPECT().ReadDir("/repo/w").Return(dirs("409"), nil)
 	f.gh.EXPECT().Issues("nutiliti/nutiliti", []int{409}).
@@ -260,11 +264,12 @@ func TestList_FetchFailureOnColdCacheStillLists(t *testing.T) {
 	got, err := f.worktree.List(model.WorktreeListOpts{Repo: "nutiliti/nutiliti"})
 
 	require.NoError(t, err)
-	assert.Equal(t, []model.WorktreeEntry{{Number: 409, Path: "/repo/w/409"}}, got)
+	assert.Equal(t, []model.WorktreeEntry{{Number: 409, Path: p.FromSlash("/repo/w/409")}}, got)
 }
 
 func TestList_MissingIssuesAreNotRefetched(t *testing.T) {
 	issues := testIssueCache(t)
+	p := pathwrap.NewPath()
 
 	first := newListFixture(t, issues)
 	first.os.EXPECT().ReadDir("/repo/w").Return(dirs("99999999"), nil)
@@ -281,7 +286,7 @@ func TestList_MissingIssuesAreNotRefetched(t *testing.T) {
 	got, err = second.worktree.List(model.WorktreeListOpts{Repo: "nutiliti/nutiliti"})
 
 	require.NoError(t, err)
-	assert.Equal(t, []model.WorktreeEntry{{Number: 99999999, Path: "/repo/w/99999999"}}, got)
+	assert.Equal(t, []model.WorktreeEntry{{Number: 99999999, Path: p.FromSlash("/repo/w/99999999")}}, got)
 }
 
 func TestList_IgnoresNonNumericAndNonDirEntries(t *testing.T) {
@@ -427,9 +432,11 @@ func TestList_KeysAreScopedByRepo(t *testing.T) {
 }
 
 func TestList_CreatedFromDotGitModTime(t *testing.T) {
+	p := pathwrap.NewPath()
+
 	f := newListFixture(t, testIssueCache(t))
 	added := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
-	f.created["/repo/w/409/.git"] = added
+	f.created[p.FromSlash("/repo/w/409/.git")] = added
 	f.os.EXPECT().ReadDir("/repo/w").Return(dirs("409", "426"), nil)
 	f.gh.EXPECT().Issues("nutiliti/nutiliti", []int{409, 426}).Return(map[int]github.Issue{}, nil, nil)
 

@@ -100,13 +100,17 @@ func TestNameSubstitutionStrategy(t *testing.T) {
 	})
 
 	t.Run("returns the rewritten name when a rule matches", func(t *testing.T) {
+		shortened := "~/c/dotfiles/.config/nvim"
+
 		mockHome := new(home.MockHome)
 		mockHome.On("ShortenHome", "/home/john/c/dotfiles/.config/nvim").
-			Return("~/c/dotfiles/.config/nvim", nil)
+			Return(shortened, nil)
+		mockPathwrap := new(pathwrap.MockPath)
+		mockPathwrap.On("ToSlash", shortened).Return(shortened)
 		config := model.Config{NameSubstitutions: []model.NameSubstitution{
 			{Find: "~/c/dotfiles/.config/", Replace: ""},
 		}}
-		n := &RealNamer{home: mockHome, config: config}
+		n := &RealNamer{home: mockHome, config: config, pathwrap: mockPathwrap}
 
 		name, err := nameSubstitution(n, "/home/john/c/dotfiles/.config/nvim")
 
@@ -115,12 +119,16 @@ func TestNameSubstitutionStrategy(t *testing.T) {
 	})
 
 	t.Run("falls through when no rule changes the path", func(t *testing.T) {
+		shortened := "~/c/api"
+
 		mockHome := new(home.MockHome)
-		mockHome.On("ShortenHome", "/home/john/c/api").Return("~/c/api", nil)
+		mockHome.On("ShortenHome", "/home/john/c/api").Return(shortened, nil)
+		mockPathwrap := new(pathwrap.MockPath)
+		mockPathwrap.On("ToSlash", shortened).Return(shortened)
 		config := model.Config{NameSubstitutions: []model.NameSubstitution{
 			{Find: "~/nowhere/", Replace: ""},
 		}}
-		n := &RealNamer{home: mockHome, config: config}
+		n := &RealNamer{home: mockHome, config: config, pathwrap: mockPathwrap}
 
 		name, err := nameSubstitution(n, "/home/john/c/api")
 
@@ -135,8 +143,11 @@ func TestNameUsesSubstitutionBeforeDirStrategy(t *testing.T) {
 	mockHome := new(home.MockHome)
 
 	path := "/home/john/c/dotfiles/.config/nvim"
+	shortened := "~/c/dotfiles/.config/nvim"
 	mockPathwrap.On("EvalSymlinks", path).Return(path, nil)
-	mockHome.On("ShortenHome", path).Return("~/c/dotfiles/.config/nvim", nil)
+	mockPathwrap.On("ToSlash", path).Return(path)
+	mockPathwrap.On("ToSlash", shortened).Return(shortened)
+	mockHome.On("ShortenHome", path).Return(shortened, nil)
 
 	config := model.Config{
 		DirLength: 1,
@@ -160,8 +171,11 @@ func TestNameFallsThroughWhenSubstitutionCollapses(t *testing.T) {
 	mockHome := new(home.MockHome)
 
 	path := "/home/john/c/api"
+	shortened := "~/c/api"
 	mockPathwrap.On("EvalSymlinks", path).Return(path, nil)
-	mockHome.On("ShortenHome", path).Return("~/c/api", nil)
+	mockPathwrap.On("ToSlash", path).Return(path)
+	mockPathwrap.On("ToSlash", shortened).Return(shortened)
+	mockHome.On("ShortenHome", path).Return(shortened, nil)
 	// No git repo, so naming should fall through to the directory strategy.
 	mockGit.On("WorktreeList", path).Return(false, "", nil)
 
